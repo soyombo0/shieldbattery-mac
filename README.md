@@ -32,8 +32,10 @@ patches both in ShieldBattery's game DLLs; [What gets patched](#what-gets-patche
 
 - An Apple Silicon Mac with [Rosetta 2](https://support.apple.com/en-us/102527) installed
   (`softwareupdate --install-rosetta`) and [Homebrew](https://brew.sh).
-- The **Windows** StarCraft: Remastered game files. Copy the whole `StarCraft` folder from a
-  Windows install (it has `x86\`, `x86_64\` and `Data\`, about 5.5 GB). The free edition is enough.
+- StarCraft: Remastered (the free edition is enough), either:
+  - the **macOS** game installed with Battle.net (e.g. `/Applications/StarCraft`), or
+  - the whole `StarCraft` folder copied from a **Windows** install (it has `x86\`, `x86_64\` and
+    `Data\`, about 5.5 GB).
 - A ShieldBattery account.
 - Python 3 (comes with the Xcode Command Line Tools).
 
@@ -57,9 +59,13 @@ prefix. You don't need the Sikarugir Creator app.
 ./scripts/2-install-game.sh /path/to/StarCraft
 ```
 
-This moves the folder to `C:\Program Files (x86)\StarCraft`, where ShieldBattery looks by
-default, and creates `~/Games/StarCraft`, a shortcut to the game's settings, maps and
-replays.
+A Windows folder is moved to `C:\Program Files (x86)\StarCraft`, where ShieldBattery looks by
+default. A macOS install is copied there instead (an APFS clone, so no extra disk space) and
+gets the Windows executables for the same game version from Blizzard's CDN (about 130 MB);
+the Mac game keeps working. The copy never updates itself: when a new StarCraft patch is out,
+update the Mac game in Battle.net, delete `C:\Program Files (x86)\StarCraft` and run this step
+again. The script also creates `~/Games/StarCraft`, a shortcut to the game's settings, maps
+and replays.
 
 **3. Install ShieldBattery.** Download the installer from
 [shieldbattery.net](https://shieldbattery.net) in your browser, then:
@@ -95,7 +101,9 @@ python3 scripts/patch_shieldbattery_wine.py
 
 ## HD graphics (optional)
 
-HD graphics and skins you've bought are read from Battle.net's offline license file,
+There are no HD files to install: the HD graphics, Carbot skin and HD shaders are already in
+the game's `Data\` folder (free edition included), which step 2 put in place. What's missing
+is the license that unlocks them. HD graphics and skins you've bought are read from Battle.net's offline license file,
 `cookie.bin`. Instead of running Battle.net under Wine, you copy that file from a Windows
 PC where you've played SC:R through Battle.net, and make the Wine prefix look like that PC.
 The file is encrypted with a key derived from the PC's **MachineGuid** and the **volume serial
@@ -184,6 +192,7 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
 | `scripts/1-build-wrapper.sh` … `4-set-hd-identity.sh` | Setup steps |
 | `scripts/common.sh` | Wrapper paths and helpers (`wrun`, `wkill`) |
 | `scripts/patch_shieldbattery_wine.py` | The two DLL patches |
+| `tools/sc_mac_to_windows.py` | Downloads the Windows executables into a macOS StarCraft folder |
 | `tools/cookie_check.py` | Checks a `cookie.bin` against a MachineGuid and volume serial |
 | `tools/hive_guid.py` | Reads the MachineGuid from an offline Windows registry file |
 | `tools/winsock-tests/` | Small Windows test programs; build with `brew install mingw-w64`, then `x86_64-w64-mingw32-gcc x.c -lws2_32` |
