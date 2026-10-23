@@ -99,6 +99,22 @@ Re-run them (safe to run any time):
 python3 scripts/patch_shieldbattery_wine.py
 ```
 
+## Hotkeys and other game settings
+
+ShieldBattery has no hotkey editor: the game gets your hotkeys (and any setting ShieldBattery
+doesn't manage itself) from Blizzard's `Documents\StarCraft\CSettings.json`, with
+ShieldBattery's own settings laid over it. A fresh prefix has no such file. To use the hotkeys
+from the Mac game, copy its settings file in, then quit and reopen ShieldBattery (it reads the
+file at startup):
+
+```bash
+cp ~/Library/Application\ Support/Blizzard/StarCraft/CSettings.json \
+   ~/Applications/Sikarugir/ShieldBattery.app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir/Documents/StarCraft/
+```
+
+Copy it again after changing hotkeys in the Mac game. The file has the same format on both
+platforms.
+
 ## HD graphics (optional)
 
 There are no HD files to install: the HD graphics, Carbot skin and HD shaders are already in
