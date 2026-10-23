@@ -264,6 +264,20 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
   `Debug Mode` to `1` and `WINEDEBUG` to `-plugplay,+seh,+loaddll` in the wrapper's
   `Contents/Info.plist`. The trace is written to `Contents/SharedSupport/Logs/LastRunWine.log`
   (about 30 MB per game, and it slows the game down).
+- **The Mac freezes during a game, then logs you out:** the game's memory grew until macOS ran
+  out (11 GB on an 8 GB Mac) and WindowServer hung. DXMT's `winemetal.so` leaks about 7 KB every
+  time the game asks for the display's color description, several hundred times a second (DXMT
+  issues [#236](https://github.com/3Shain/dxmt/issues/236) and
+  [#237](https://github.com/3Shain/dxmt/issues/237)), about 20 GB per hour.
+  `scripts/patch_winemetal.py` (run by step 1) puts `scripts/winemetal_leakfix.m` in front of it:
+  a small library that loads the original, now `winemetal.orig.so`, and replaces those two
+  calls with versions that free what they allocate. Needs the Xcode Command Line Tools. For a
+  wrapper built before that:
+  `python3 scripts/patch_winemetal.py ~/Applications/Sikarugir/ShieldBattery.app/Contents/SharedSupport/renderer/dxmt/wine/x86_64-unix`
+- **ShieldBattery doesn't open (no window, nothing to click):** an old Wine session is still
+  running without a window, typically after macOS logged you out or WindowServer crashed. The
+  new launch hands over to that old instance. Stop it, then open the app again:
+  `bash -c '. scripts/common.sh; wkill'`.
 - **Running Windows programs in the wrapper:** a plain `wine` command doesn't work here. Use
   `Contents/MacOS/wineskinlauncher /path/to/file.exe` (`wrun` in `scripts/common.sh`). Arguments
   are dropped when Wine is already running, so put commands with arguments in a `.bat` file.
@@ -278,6 +292,7 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
 | `scripts/common.sh` | Wrapper paths and helpers (`wrun`, `wkill`) |
 | `scripts/patch_shieldbattery_wine.py` | The two DLL patches |
 | `scripts/patch_dxmt.py` | Fixes DXMT's random crash at game start (`0x80000101`) |
+| `scripts/patch_winemetal.py`, `scripts/winemetal_leakfix.m` | Fixes DXMT's memory leak (Mac freezes during long games) |
 | `tools/sc_mac_to_windows.py` | Downloads the Windows executables into a macOS StarCraft folder |
 | `tools/mac_cookie_identity.py` | Finds the MachineGuid and volume serial that open a macOS Battle.net `cookie.bin` |
 | `tools/cookie_check.py` | Checks a `cookie.bin` against a MachineGuid and volume serial |

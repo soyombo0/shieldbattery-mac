@@ -36,5 +36,8 @@ done
 # with 0x80000101 about half the time. See patch_dxmt.py.
 python3 -I "$(dirname "$0")/patch_dxmt.py" "$C/SharedSupport/renderer/dxmt/wine/x86_64-windows/d3d11.dll" \
     "$DRIVE_C/windows/system32/d3d11.dll"
+# DXMT's winemetal.so leaks about 20 GB per hour of play until macOS runs out of memory. See
+# winemetal_leakfix.m.
+python3 -I "$(dirname "$0")/patch_winemetal.py" "$C/SharedSupport/renderer/dxmt/wine/x86_64-unix"
 echo "Wrapper ready: $WRAPPER"
 echo "Renderer: DXMT (template default). Keep D3DMETAL=0, since D3DMetal blacks out the ShieldBattery UI."
