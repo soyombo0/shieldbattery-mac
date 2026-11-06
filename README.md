@@ -32,8 +32,10 @@ patches both in ShieldBattery's game DLLs; [What gets patched](#what-gets-patche
 
 - An Apple Silicon Mac with [Rosetta 2](https://support.apple.com/en-us/102527) installed
   (`softwareupdate --install-rosetta`) and [Homebrew](https://brew.sh).
-- The **Windows** StarCraft: Remastered game files. Copy the whole `StarCraft` folder from a
-  Windows install (it has `x86\`, `x86_64\` and `Data\`, about 5.5 GB). The free edition is enough.
+- StarCraft: Remastered (the free edition is enough), either:
+  - the **macOS** game installed with Battle.net (e.g. `/Applications/StarCraft`), or
+  - the whole `StarCraft` folder copied from a **Windows** install (it has `x86\`, `x86_64\` and
+    `Data\`, about 5.5 GB).
 - A ShieldBattery account.
 - Python 3 (comes with the Xcode Command Line Tools).
 
@@ -57,9 +59,13 @@ prefix. You don't need the Sikarugir Creator app.
 ./scripts/2-install-game.sh /path/to/StarCraft
 ```
 
-This moves the folder to `C:\Program Files (x86)\StarCraft`, where ShieldBattery looks by
-default, and creates `~/Games/StarCraft`, a shortcut to the game's settings, maps and
-replays.
+A Windows folder is moved to `C:\Program Files (x86)\StarCraft`, where ShieldBattery looks by
+default. A macOS install is copied there instead (an APFS clone, so no extra disk space) and
+gets the Windows executables for the same game version from Blizzard's CDN (about 130 MB);
+the Mac game keeps working. The copy never updates itself: when a new StarCraft patch is out,
+update the Mac game in Battle.net, delete `C:\Program Files (x86)\StarCraft` and run this step
+again. The script also creates `~/Games/StarCraft`, a shortcut to the game's settings, maps
+and replays.
 
 **3. Install ShieldBattery.** Download the installer from
 [shieldbattery.net](https://shieldbattery.net) in your browser, then:
@@ -93,13 +99,58 @@ Re-run them (safe to run any time):
 python3 scripts/patch_shieldbattery_wine.py
 ```
 
+## Hotkeys and other game settings
+
+ShieldBattery has no hotkey editor: the game gets your hotkeys (and any setting ShieldBattery
+doesn't manage itself) from Blizzard's `Documents\StarCraft\CSettings.json`, with
+ShieldBattery's own settings laid over it. A fresh prefix has no such file. To use the hotkeys
+from the Mac game, copy its settings file in, then quit and reopen ShieldBattery (it reads the
+file at startup):
+
+```bash
+cp ~/Library/Application\ Support/Blizzard/StarCraft/CSettings.json \
+   ~/Applications/Sikarugir/ShieldBattery.app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir/Documents/StarCraft/
+```
+
+Copy it again after changing hotkeys in the Mac game. The file has the same format on both
+platforms.
+
 ## HD graphics (optional)
 
-HD graphics and skins you've bought are read from Battle.net's offline license file,
-`cookie.bin`. Instead of running Battle.net under Wine, you copy that file from a Windows
-PC where you've played SC:R through Battle.net, and make the Wine prefix look like that PC.
-The file is encrypted with a key derived from the PC's **MachineGuid** and the **volume serial
-number** of the drive the game is installed on.
+There are no HD files to install: the HD graphics, Carbot skin and HD shaders are already in
+the game's `Data\` folder (free edition included), which step 2 put in place. What's missing
+is the license that unlocks them. HD graphics and skins you've bought are read from Battle.net's offline license file,
+`cookie.bin`, which is encrypted for the machine it was written on. Take it either from this
+Mac's own Battle.net or from a Windows PC.
+
+### From the Mac's Battle.net
+
+Log in to Battle.net for macOS and start StarCraft: Remastered from it once, so it writes
+`~/Library/Application Support/Blizzard Entertainment/ClientSdk/cookie.bin`. Then:
+
+```bash
+./scripts/4-set-hd-from-mac.sh
+```
+
+This copies the cookie into the prefix unchanged and gives the prefix a MachineGuid and C:
+volume serial from which the Windows game derives this Mac's key (see
+[How the cookie is encrypted](#how-the-cookie-is-encrypted)). The MachineGuid ends in a few odd
+characters and the serial is a single digit, like `00000001`; that's expected. It quits
+ShieldBattery if it's running. Run it again whenever HD stops working: after a new cookie, or
+after macOS changes the Wi-Fi address, which is part of the Mac key.
+
+This works only when the Wi-Fi MAC address ends in a byte from `30` to `39` (an ASCII digit),
+because that byte has to become the volume serial. The script says so if yours doesn't. With a
+rotating private Wi-Fi address you can wait for a matching one; otherwise use a Windows cookie.
+
+ShieldBattery logs this cookie as `invalid (doesn't match this machine, or corrupt)` in
+`game.0.log`, because it reads MachineGuid differently from the game. The game still uses it.
+
+### From a Windows PC
+
+Copy `cookie.bin` from a Windows PC where you've played SC:R through Battle.net, and make
+the Wine prefix look like that PC. The file is encrypted with a key derived from the PC's
+**MachineGuid** and the **volume serial number** of the drive the game is installed on.
 
 You need three things from the Windows PC:
 
@@ -128,6 +179,31 @@ Then install them into the prefix. This quits ShieldBattery if it's running:
 
 The cookie works even after its expiry date, because ShieldBattery handles that itself. If HD
 stops working, play once through Battle.net on Windows and copy the new `cookie.bin`.
+
+### How the cookie is encrypted
+
+Each game's entry holds `EFC22400 | salt (10 bytes) | tag (20 bytes) | ciphertext`. The key
+material is PBKDF2-HMAC-SHA512 over a password and the salt, 8192 iterations, 80 bytes: bytes
+0–31 are a Serpent key, 32–63 an HMAC-SHA512 key (the tag is the first 20 bytes), 64–79 the IV
+for Serpent in big-endian CTR mode (Botan's `Serpent/CTR-BE`). The password is
+`base64(SHA1(x))`:
+
+- **Windows:** `x` is the MachineGuid followed by the decimal volume serial.
+- **macOS:** `x` is the IOPlatformUUID followed by the 6 raw bytes of the MAC address of the
+  first non-loopback network interface, usually `en0` (Wi-Fi). With a private Wi-Fi address,
+  that's the private address in use, not the hardware one.
+
+The plaintext lists your licenses (`hd`, `sc-carbot`, ...). The 256-byte field next to the entry
+looks like a Blizzard signature over the encrypted payload: a cookie re-encrypted for another
+identity was reported valid by ShieldBattery, but the game ignored its licenses, while the same
+cookie left unchanged worked. So the prefix has to reproduce the original key instead.
+
+The game reads MachineGuid and turns it into bytes with the ANSI code page (1252 in an en-US
+prefix). So the Mac's `x` can be reproduced: MachineGuid is `x` without its last byte, read as
+code page 1252, and the volume serial is that last byte as a digit. `tools/mac_cookie_identity.py`
+finds the right MAC address and writes the MachineGuid as a `.reg` file. Some macOS processes,
+Homebrew's Python among them, see every MAC address as `02:00:00:00:00:00`, so the script reads
+them with `ifconfig` and passes them in.
 
 ## What gets patched
 
@@ -166,11 +242,42 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
 - **Don't switch the renderer to D3DMetal.** It turns the ShieldBattery window black, and the
   `--disable-gpu` flags don't fix that. The default DXMT handles both the app and the game, HD
   included.
-- **A game occasionally exits with code `0x80000101`** and no crash dump. It happened a
-  handful of times, and trying again worked. Cause unknown. To capture a Wine trace, set
+- **A game occasionally exits with code `0x80000101`** and no crash dump. Trying again works.
+  The code is Wine's `EXCEPTION_WINE_ASSERTION`: a Wine trace shows the process aborting on
+  `-[NSIndirectTaggedPointerString newComputePipelineStateWithDescriptor:options:reflection:error:]:
+  unrecognized selector`: DXMT used its Metal device before initializing it, so whether the
+  game survives depends on leftover memory. DXMT fixed it upstream in commit
+  [`fb45156`](https://github.com/3Shain/dxmt/commit/fb4515681daefb789a4d0f403c4bdbca88f3b3de),
+  after the template's build (`v0.80-244-g7c8dee1`). Upstream builds can't simply replace the
+  template's, though: they lack its `DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN` change, and without it
+  the ShieldBattery window stays invisible. So `scripts/patch_dxmt.py` applies the same fix to
+  the template's `d3d11.dll` (step 1 runs it; originals are kept as `d3d11.dll.orig`). For a
+  wrapper built before that:
+
+  ```bash
+  W=~/Applications/Sikarugir/ShieldBattery.app/Contents/SharedSupport
+  python3 scripts/patch_dxmt.py "$W/renderer/dxmt/wine/x86_64-windows/d3d11.dll" \
+      "$W/prefix/drive_c/windows/system32/d3d11.dll"
+  ```
+
+  To capture a Wine trace, set
   `Debug Mode` to `1` and `WINEDEBUG` to `-plugplay,+seh,+loaddll` in the wrapper's
   `Contents/Info.plist`. The trace is written to `Contents/SharedSupport/Logs/LastRunWine.log`
   (about 30 MB per game, and it slows the game down).
+- **The Mac freezes during a game, then logs you out:** the game's memory grew until macOS ran
+  out (11 GB on an 8 GB Mac) and WindowServer hung. DXMT's `winemetal.so` leaks about 7 KB every
+  time the game asks for the display's color description, several hundred times a second (DXMT
+  issues [#236](https://github.com/3Shain/dxmt/issues/236) and
+  [#237](https://github.com/3Shain/dxmt/issues/237)), about 20 GB per hour.
+  `scripts/patch_winemetal.py` (run by step 1) puts `scripts/winemetal_leakfix.m` in front of it:
+  a small library that loads the original, now `winemetal.orig.so`, and replaces those two
+  calls with versions that free what they allocate. Needs the Xcode Command Line Tools. For a
+  wrapper built before that:
+  `python3 scripts/patch_winemetal.py ~/Applications/Sikarugir/ShieldBattery.app/Contents/SharedSupport/renderer/dxmt/wine/x86_64-unix`
+- **ShieldBattery doesn't open (no window, nothing to click):** an old Wine session is still
+  running without a window, typically after macOS logged you out or WindowServer crashed. The
+  new launch hands over to that old instance. Stop it, then open the app again:
+  `bash -c '. scripts/common.sh; wkill'`.
 - **Running Windows programs in the wrapper:** a plain `wine` command doesn't work here. Use
   `Contents/MacOS/wineskinlauncher /path/to/file.exe` (`wrun` in `scripts/common.sh`). Arguments
   are dropped when Wine is already running, so put commands with arguments in a `.bat` file.
@@ -181,9 +288,13 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
 
 | Path | Purpose |
 |---|---|
-| `scripts/1-build-wrapper.sh` … `4-set-hd-identity.sh` | Setup steps |
+| `scripts/1-build-wrapper.sh` … `4-set-hd-identity.sh` | Setup steps (`4-set-hd-from-mac.sh` is the Mac alternative to step 4) |
 | `scripts/common.sh` | Wrapper paths and helpers (`wrun`, `wkill`) |
 | `scripts/patch_shieldbattery_wine.py` | The two DLL patches |
+| `scripts/patch_dxmt.py` | Fixes DXMT's random crash at game start (`0x80000101`) |
+| `scripts/patch_winemetal.py`, `scripts/winemetal_leakfix.m` | Fixes DXMT's memory leak (Mac freezes during long games) |
+| `tools/sc_mac_to_windows.py` | Downloads the Windows executables into a macOS StarCraft folder |
+| `tools/mac_cookie_identity.py` | Finds the MachineGuid and volume serial that open a macOS Battle.net `cookie.bin` |
 | `tools/cookie_check.py` | Checks a `cookie.bin` against a MachineGuid and volume serial |
 | `tools/hive_guid.py` | Reads the MachineGuid from an offline Windows registry file |
 | `tools/winsock-tests/` | Small Windows test programs; build with `brew install mingw-w64`, then `x86_64-w64-mingw32-gcc x.c -lws2_32` |
