@@ -77,8 +77,11 @@ if not os.path.exists(orig):
         raise SystemExit(f"{lib}: not patched, {problem} (a different DXMT build, needs a look)")
     os.rename(lib, orig)
 built = lib + ".tmp"
+# The original links @rpath/winemac.so and @rpath/ntdll.so, which are in Wine's folder. dlopen also
+# searches its caller's rpaths, so the stand-in needs this to load the original.
 subprocess.run(["xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=11.0", "-O2", "-dynamiclib",
                 "-install_name", "@rpath/winemetal_leakfix.so", "-framework", "AppKit", "-framework", "ColorSync",
+                "-Wl,-rpath,@loader_path/../../../../wine/lib/wine/x86_64-unix",
                 "-o", built, os.path.join(HERE, "winemetal_leakfix.m")], check=True)
 os.replace(built, lib)
 print(f"{lib}: leak fix installed (original kept as winemetal.orig.so)")
