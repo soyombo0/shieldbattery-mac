@@ -205,6 +205,19 @@ finds the right MAC address and writes the MachineGuid as a `.reg` file. Some ma
 Homebrew's Python among them, see every MAC address as `02:00:00:00:00:00`, so the script reads
 them with `ifconfig` and passes them in.
 
+## Sharp client on a Retina screen (optional)
+
+By default Wine reports the screen in points (1440x900 on a 13" MacBook Air) and macOS scales
+every window up, so the ShieldBattery client's text is blurry. This turns on Wine's Retina mode and
+sets Windows scaling to 200%, so the client keeps its size but draws at full pixel density:
+
+```bash
+./scripts/5-retina.sh       # ./scripts/5-retina.sh off to undo
+```
+
+Wine applies Retina mode to the whole prefix and ignores a per-app setting, so the game renders
+at full resolution too (2880x1800 instead of 1440x900). On an M1 it still held 60 fps.
+
 ## What gets patched
 
 ### 1. `sb_init_64.dll` won't load: the game hangs at "Launching game…"
@@ -289,6 +302,7 @@ and keeps the originals as `*.orig`. Draft reports for the projects involved are
 | Path | Purpose |
 |---|---|
 | `scripts/1-build-wrapper.sh` … `4-set-hd-identity.sh` | Setup steps (`4-set-hd-from-mac.sh` is the Mac alternative to step 4) |
+| `scripts/5-retina.sh` | Sharp client on a Retina screen (optional) |
 | `scripts/common.sh` | Wrapper paths and helpers (`wrun`, `wkill`) |
 | `scripts/patch_shieldbattery_wine.py` | The two DLL patches |
 | `scripts/patch_dxmt.py` | Fixes DXMT's random crash at game start (`0x80000101`) |
