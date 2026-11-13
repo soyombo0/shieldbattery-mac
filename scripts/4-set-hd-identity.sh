@@ -25,6 +25,6 @@ printf '%s\n' "$serial" > "$DRIVE_C/.windows-serial"
 mkdir -p "$DRIVE_C/sbtools"
 printf 'reg add "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid /t REG_SZ /d %s /f /reg:64\r\n' "$guid" \
     > "$DRIVE_C/sbtools/set-guid.bat"
-wrun "$DRIVE_C/sbtools/set-guid.bat" >/dev/null 2>&1
+wrun_bat "$DRIVE_C/sbtools/set-guid.bat"
 wkill
 echo "Set. Check with tools/winsock-tests/hwcheck.c (writes C:\\sbtools\\hwcheck.txt), then open ShieldBattery."

@@ -29,6 +29,7 @@ printf '%s\n' "$serial" > "$DRIVE_C/.windows-serial"
 # MachineGuid holds non-ASCII and control characters, which reg.exe in a .bat can't pass; regedit
 # imports them exactly from a hex(1) value.
 printf 'regedit /s C:\\sbtools\\machine-guid.reg\r\n' > "$DRIVE_C/sbtools/set-guid.bat"
-wrun "$DRIVE_C/sbtools/set-guid.bat" >/dev/null 2>&1
+wrun_bat "$DRIVE_C/sbtools/set-guid.bat"
 wkill
+grep -q "\"MachineGuid\"=\"$uuid" "$PREFIX/system.reg" || { echo "MachineGuid didn't save, run this again"; exit 1; }
 echo "Set: cookie copied, C: volume serial $serial, MachineGuid from this Mac. Open ShieldBattery."

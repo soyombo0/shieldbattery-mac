@@ -11,6 +11,18 @@ SB_DIST="$DRIVE_C/users/Sikarugir/AppData/Local/Programs/shieldbattery-app/resou
 # running ("secondary run"), so put arguments in a .bat file instead.
 wrun() { (cd "$HOME" && "$C/MacOS/wineskinlauncher" "$@"); }
 
+# Run a .bat in C:\sbtools and wait until it has finished. The launcher can return before the
+# .bat runs, and a wkill right after that loses its registry changes.
+wrun_bat() {
+    local done="$DRIVE_C/sbtools/bat.done"
+    rm -f "$done"
+    printf 'echo done> C:\\sbtools\\bat.done\r\n' >> "$1"
+    wrun "$1" >/dev/null 2>&1
+    for _ in $(seq 90); do [ -f "$done" ] && return 0; sleep 1; done
+    echo "timed out waiting for $1 to run" >&2
+    return 1
+}
+
 # Stop every Wine process in the wrapper, ShieldBattery included.
 wkill() {
     pkill -f "ShieldBattery.exe" 2>/dev/null || true

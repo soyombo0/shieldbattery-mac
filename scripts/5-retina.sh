@@ -19,15 +19,11 @@ esac
 
 wkill
 mkdir -p "$DRIVE_C/sbtools"
-rm -f "$DRIVE_C/sbtools/retina.done"
 printf '%s\r\n' \
     "reg add \"HKCU\\Software\\Wine\\Mac Driver\" /v RetinaMode /t REG_SZ /d $retina /f" \
     "reg add \"HKCU\\Control Panel\\Desktop\" /v LogPixels /t REG_DWORD /d $dpi /f" \
-    'echo done> C:\sbtools\retina.done' \
     > "$DRIVE_C/sbtools/set-retina.bat"
-wrun "$DRIVE_C/sbtools/set-retina.bat" >/dev/null 2>&1
-# The launcher returns before the .bat has run; stopping Wine then would lose the change.
-for _ in $(seq 60); do [ -f "$DRIVE_C/sbtools/retina.done" ] && break; sleep 1; done
+wrun_bat "$DRIVE_C/sbtools/set-retina.bat"
 wkill
 grep -q "\"RetinaMode\"=\"$retina\"" "$PREFIX/user.reg" || { echo "the setting didn't save, run this again"; exit 1; }
 echo "Set: Retina mode $mode, $dpi DPI. Open ShieldBattery."
